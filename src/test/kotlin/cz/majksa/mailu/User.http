@@ -1,0 +1,15 @@
+POST http://localhost:1245/domain/withzyme.com/user
+Content-Type: application/json
+
+{
+  "name": "elenahh",
+  "displayName": "Elena",
+  "password": "elena"
+}
+###
+POST http://localhost:1245/domain/withzyme.com/user/maxa.ondrej/password
+Content-Type: application/json
+
+{
+  "password": "majksa"
+}

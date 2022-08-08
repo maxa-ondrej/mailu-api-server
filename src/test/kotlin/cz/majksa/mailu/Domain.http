@@ -1,0 +1,6 @@
+POST http://localhost:1245/domain
+Content-Type: application/json
+
+{
+  "name": "withzyme.com"
+}
