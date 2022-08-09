@@ -12,6 +12,12 @@ data class Alias(
     val wildcard: Boolean
 )
 
+@Serializable
+data class CreateAlias(
+    val name: String,
+    val wildcard: Boolean
+)
+
 object Aliases : Table("alias") {
     /**
      * Important user data

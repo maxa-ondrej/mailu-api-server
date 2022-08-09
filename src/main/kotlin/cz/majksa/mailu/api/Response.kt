@@ -1,17 +1,21 @@
 package cz.majksa.mailu.api
 
+import cz.majksa.mailu.dao.HTTPError
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import io.ktor.util.pipeline.*
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class Error(val code: Int, val description: String, val message: String)
 
-suspend fun error(call: ApplicationCall, status: HttpStatusCode, message: String) {
-    call.respond(status, Error(status.value, status.description, message))
-}
+@Serializable
+data class StringResponse(val data: String)
 
-suspend fun success(call: ApplicationCall, data: Any, status: HttpStatusCode = HttpStatusCode.OK) {
-    call.respond(status, data)
-}
+@Serializable
+data class IntResponse(val data: Int)
+
+@Serializable
+data class BooleanResponse(val data: Boolean)

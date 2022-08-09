@@ -12,6 +12,9 @@ data class Domain(
     val signupEnabled: Boolean
 )
 
+@Serializable
+data class CreateDomain(val name: String)
+
 object Domains : Table("domain") {
     val name = varchar("name", 80)
     val maxUsers = integer("max_users").default(-1)

@@ -3,8 +3,10 @@ package cz.majksa.mailu.dao
 import cz.majksa.mailu.dao.DatabaseFactory.dbQuery
 import cz.majksa.mailu.models.*
 import cz.majksa.mailu.models.Alias
+import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.jetbrains.exposed.sql.*
 import java.time.LocalDate
+import kotlin.jvm.Throws
 
 class FacadeImpl : Facade {
 
@@ -12,66 +14,101 @@ class FacadeImpl : Facade {
         Domains.selectAll().map(::resultRowToDomain)
     }
 
-    override suspend fun domain(name: String): Domain? = dbQuery {
+    @Throws(NotFoundError::class)
+    override suspend fun domain(name: String): Domain = dbQuery {
         Domains
             .select { Domains.name eq name }
             .map(::resultRowToDomain)
-            .singleOrNull()
+            .singleOrNull() ?: throw NotFoundError("Domain", "name=$name")
     }
 
-    override suspend fun addDomain(name: String): Domain? = dbQuery {
-        val insertStatement = Domains.insert {
-            it[this.name] = name
-            it[createdAt] = LocalDate.now()
+    @Throws(ConflictError::class)
+    override suspend fun addDomain(name: String): Domain = dbQuery {
+        try {
+            val insertStatement = Domains.insert {
+                it[this.name] = name
+                it[createdAt] = LocalDate.now()
+            }
+
+            insertStatement.resultedValues?.singleOrNull()?.let(::resultRowToDomain) ?: throw ConflictError()
+        } catch (e: ExposedSQLException) {
+            throw ConflictError(e.cause?.message)
         }
-
-        insertStatement.resultedValues?.singleOrNull()?.let(::resultRowToDomain)
     }
 
-    override suspend fun renameDomain(name: String, newName: String): Boolean = dbQuery {
-        Domains
-            .update({ Domains.name eq name }) {
-                it[this.name] = newName
-            } > 0
+    @Throws(ConflictError::class)
+    override suspend fun renameDomain(domain: Domain, name: String): String = dbQuery {
+        try {
+            Domains
+                .update({ Domains.name eq domain.name }) {
+                    it[this.name] = name
+                }
+            name
+        } catch (e: ExposedSQLException) {
+            throw ConflictError(e.cause?.message)
+        }
     }
 
-    override suspend fun deleteDomain(name: String): Boolean = dbQuery {
-        Domains.deleteWhere { Domains.name eq name } > 0
+    override suspend fun deleteDomain(domain: Domain): Boolean = dbQuery {
+        Domains.deleteWhere { Domains.name eq domain.name } > 0
     }
 
-    override suspend fun domainUsers(name: String): List<User> = dbQuery {
-        Users.select { Users.domainName eq name } .map(::resultRowToUser)
+    override suspend fun domainUsers(domain: Domain): List<User> = dbQuery {
+        Users.select { Users.domainName eq domain.name }.map(::resultRowToUser)
     }
 
-    override suspend fun user(domain: Domain, name: String): User? = dbQuery {
+    @Throws(NotFoundError::class)
+    override suspend fun user(domain: Domain, name: String): User = dbQuery {
+        val email = getEmail(domain, name)
         Users
-            .select { Users.email eq getEmail(domain, name) }
+            .select { Users.email eq email }
             .map(::resultRowToUser)
-            .singleOrNull()
+            .singleOrNull() ?: throw NotFoundError("User", "email=$email")
     }
 
-    override suspend fun addUser(domain: Domain, name: String, displayedName: String, password: String): User? = dbQuery {
-        val insertStatement = Users.insert {
-            it[email] = getEmail(domain, name)
-            it[this.displayedName] = displayedName
-            it[localPart] = name
-            it[domainName] = domain.name
-            it[createdAt] = LocalDate.now()
-            it[this.password] = password
+    @Throws(ConflictError::class)
+    override suspend fun addUser(domain: Domain, name: String, displayedName: String, password: String): User =
+        dbQuery {
+            val hash = Security.generatePassword(password)
+            try {
+                val insertStatement = Users.insert {
+                    it[email] = getEmail(domain, name)
+                    it[this.displayedName] = displayedName
+                    it[localPart] = name
+                    it[domainName] = domain.name
+                    it[createdAt] = LocalDate.now()
+                    it[this.password] = hash
+                }
+
+                insertStatement.resultedValues?.singleOrNull()?.let(::resultRowToUser) ?: throw ConflictError()
+            } catch (e: ExposedSQLException) {
+                throw ConflictError(e.cause?.message)
+            }
         }
-
-        insertStatement.resultedValues?.singleOrNull()?.let(::resultRowToUser)
-    }
 
     override suspend fun changeUserPassword(user: User, password: String): Boolean = dbQuery {
+        val hash = Security.generatePassword(password)
         Users
             .update({ Users.email eq user.email }) {
-                it[this.password] = password
+                it[this.password] = hash
             } > 0
     }
 
-    override suspend fun deleteUser(domain: Domain, name: String): Boolean = dbQuery {
-        Users.deleteWhere { Users.email eq getEmail(domain, name) } > 0
+    override suspend fun renameUser(user: User, name: String): String = dbQuery {
+        try {
+            Users
+                .update({ Users.email eq user.email }) {
+                    it[this.localPart] = name
+                    it[email] = "$name@${user.domain}"
+                }
+            name
+        } catch (e: ExposedSQLException) {
+            throw ConflictError(e.cause?.message)
+        }
+    }
+
+    override suspend fun deleteUser(user: User): Boolean = dbQuery {
+        Users.deleteWhere { Users.email eq user.email } > 0
     }
 
     override suspend fun userAliases(user: User): List<Alias> = dbQuery {
@@ -80,28 +117,48 @@ class FacadeImpl : Facade {
             .map(::resultRowToAlias)
     }
 
-    override suspend fun alias(user: User, name: String): Alias? = dbQuery {
+    @Throws(NotFoundError::class)
+    override suspend fun alias(user: User, name: String): Alias = dbQuery {
+        val email = getAlias(user, name)
         Aliases
-            .select { Aliases.email eq getAlias(user, name) }
+            .select { Aliases.email eq email }
             .map(::resultRowToAlias)
-            .singleOrNull()
+            .singleOrNull() ?: throw NotFoundError("Alias", "email=$email")
     }
 
-    override suspend fun addAlias(user: User, name: String, wildcard: Boolean): Alias? = dbQuery {
-        val insertStatement = Aliases.insert {
-            it[email] = getAlias(user, name)
-            it[localPart] = name
-            it[domainName] = user.domain
-            it[createdAt] = LocalDate.now()
-            it[this.wildcard] = wildcard
-            it[destination] = user.email
+    @Throws(ConflictError::class)
+    override suspend fun addAlias(user: User, name: String, wildcard: Boolean): Alias = dbQuery {
+        try {
+            val insertStatement = Aliases.insert {
+                it[email] = getAlias(user, name)
+                it[localPart] = name
+                it[domainName] = user.domain
+                it[createdAt] = LocalDate.now()
+                it[this.wildcard] = wildcard
+                it[destination] = user.email
+            }
+
+            insertStatement.resultedValues?.singleOrNull()?.let(::resultRowToAlias) ?: throw ConflictError()
+        } catch (e: ExposedSQLException) {
+            throw ConflictError(e.cause?.message)
         }
-
-        insertStatement.resultedValues?.singleOrNull()?.let(::resultRowToAlias)
     }
 
-    override suspend fun deleteAlias(user: User, name: String): Boolean = dbQuery {
-        Aliases.deleteWhere { Aliases.email eq getAlias(user, name) } > 0
+    override suspend fun renameAlias(alias: Alias, name: String): String = dbQuery {
+        try {
+            Aliases
+                .update({ Aliases.email eq alias.email }) {
+                    it[this.localPart] = name
+                    it[email] = "$name@${alias.domainName}"
+                }
+            name
+        } catch (e: ExposedSQLException) {
+            throw ConflictError(e.cause?.message)
+        }
+    }
+
+    override suspend fun deleteAlias(alias: Alias): Boolean = dbQuery {
+        Aliases.deleteWhere { Aliases.email eq alias.email } > 0
     }
 }
 

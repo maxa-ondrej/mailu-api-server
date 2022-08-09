@@ -25,9 +25,7 @@ object DatabaseFactory {
         val jdbcURL = "jdbc:h2:file:./data/db"
         val database = Database.connect(jdbcURL, driverClassName)
         transaction(database) {
-            SchemaUtils.create(Aliases)
-            SchemaUtils.create(Domains)
-            SchemaUtils.create(Users)
+            SchemaUtils.create(Aliases, Domains, Users)
         }
     }
 
