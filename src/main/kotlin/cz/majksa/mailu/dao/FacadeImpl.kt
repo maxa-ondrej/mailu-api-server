@@ -96,15 +96,25 @@ class FacadeImpl : Facade {
 
     override suspend fun renameUser(user: User, name: String): String = dbQuery {
         try {
+            val old = user.name
             Users
                 .update({ Users.email eq user.email }) {
                     it[this.localPart] = name
                     it[email] = "$name@${user.domain}"
                 }
-            name
+            old
         } catch (e: ExposedSQLException) {
             throw ConflictError(e.cause?.message)
         }
+    }
+
+    override suspend fun allocateUserStorage(user: User, storage: Long): Long = dbQuery {
+        val old = user.storage.allocated
+        Users
+            .update({ Users.email eq user.email }) {
+                it[this.quotaBytes] = storage
+            }
+        old
     }
 
     override suspend fun deleteUser(user: User): Boolean = dbQuery {

@@ -30,6 +30,9 @@ data class CreateUser(
 data class ChangePassword(val password: String)
 
 @Serializable
+data class SetAllocated(val allocated: Long)
+
+@Serializable
 data class Storage(
     val allocated: Long,
     val used: Long,

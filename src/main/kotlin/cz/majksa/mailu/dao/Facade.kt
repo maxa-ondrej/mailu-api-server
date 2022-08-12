@@ -24,6 +24,7 @@ interface Facade {
     suspend fun changeUserPassword(user: User, password: String): Boolean
     @Throws(ConflictError::class)
     suspend fun renameUser(user: User, name: String): String
+    suspend fun allocateUserStorage(user: User, storage: Long): Long
     suspend fun deleteUser(user: User): Boolean
     suspend fun userAliases(user: User): List<Alias>
 

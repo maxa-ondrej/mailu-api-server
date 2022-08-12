@@ -7,6 +7,7 @@ import cz.majksa.mailu.dao.dao
 import cz.majksa.mailu.models.ChangePassword
 import cz.majksa.mailu.models.CreateUser
 import cz.majksa.mailu.models.RenameData
+import cz.majksa.mailu.models.SetAllocated
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.routing.*
@@ -37,6 +38,15 @@ fun Route.user() {
                     val domain = dao.domain(it.call.parameters["domain"] ?: "")
                     val user = dao.user(domain, it.call.parameters["user"] ?: "")
                     dao.renameUser(user, input.name)
+                }
+            }
+
+            route("storage") {
+                postS {
+                    val input = it.call.receive<SetAllocated>()
+                    val domain = dao.domain(it.call.parameters["domain"] ?: "")
+                    val user = dao.user(domain, it.call.parameters["user"] ?: "")
+                    dao.allocateUserStorage(user, input.allocated)
                 }
             }
 
