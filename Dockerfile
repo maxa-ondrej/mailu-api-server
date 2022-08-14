@@ -32,7 +32,8 @@ USER $APPLICATION_USER
 COPY --from=build /appbuild/build/libs/api*all.jar /api/application.jar
 #COPY --from=build /appbuild/resources/ /api/resources/
 WORKDIR /api
+EXPOSE 80
 
 # Entrypoint definition
-CMD ["sh", "-c", "java -server -XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap -XX:InitialRAMFraction=2 -XX:MinRAMFraction=2 -XX:MaxRAMFraction=2 -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -XX:+UseStringDeduplication -jar application.jar"]
+ENTRYPOINT ["java","-jar","/api/application.jar"]
 # End Container setup --------
