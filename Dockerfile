@@ -6,7 +6,7 @@ COPY . /appbuild
 
 WORKDIR /appbuild
 
-#RUN ./gradlew clean build
+RUN ./gradlew clean build
 # End App Building phase --------
 
 # Container setup --------
