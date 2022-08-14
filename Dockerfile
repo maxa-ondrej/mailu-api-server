@@ -6,7 +6,7 @@ COPY . /appbuild
 
 WORKDIR /appbuild
 
-RUN ./gradlew clean build
+#RUN ./gradlew clean build
 # End App Building phase --------
 
 # Container setup --------
@@ -35,5 +35,5 @@ WORKDIR /api
 EXPOSE 80
 
 # Entrypoint definition
-ENTRYPOINT ["java","-jar","/api/application.jar"]
+CMD ["java","-jar","/api/application.jar"]
 # End Container setup --------
